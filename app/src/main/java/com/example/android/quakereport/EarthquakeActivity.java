@@ -15,12 +15,13 @@
  */
 package com.example.android.quakereport;
 
-import android.os.AsyncTask;
+import android.app.LoaderManager;
+import android.content.AsyncTaskLoader;
+import android.content.Context;
+import android.content.Loader;
 import android.os.Bundle;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -29,13 +30,19 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-public class EarthquakeActivity extends AppCompatActivity {
+public class EarthquakeActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<List<SeismicData>> {
+
+    private static final int EARTHQUAKE_LOADER_ID = 0;
 
     public static final String LOG_TAG = EarthquakeActivity.class.getName();
 
     EarthquakeAdapter mAdapter;
 
-    private static final String USGS_REQUEST_URL  = "http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=earthquake&orderby=time&minmag=6&limit=10";
+    private static final String USGS_REQUEST_URL = "http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=earthquake&orderby=time&minmag=6&limit=10";
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,19 +60,57 @@ public class EarthquakeActivity extends AppCompatActivity {
         earthquakeListView.setAdapter(mAdapter);
 
         //initiate background thread
-        new EarthquakeAsyncTask().execute(USGS_REQUEST_URL);
+        getLoaderManager().initLoader(EARTHQUAKE_LOADER_ID, null,this);
     }
 
+    //imitates Background thread if not started
+    @Override
+    public Loader<List<SeismicData>> onCreateLoader(int i, Bundle bundle) {
+        return new EarthquakeLoader(this, USGS_REQUEST_URL);
+    }
+
+    //updates UI
+    @Override
+    public void onLoadFinished(Loader<List<SeismicData>> loader, List<SeismicData> seismicData) {
+        ListView view = (ListView) findViewById(R.id.list);
+        TextView textView = (TextView) findViewById(R.id.empty_list_item);
+
+        if(seismicData.isEmpty()){
+            view.setEmptyView(textView);
+            }
+        else {
+            mAdapter.clear();
+            mAdapter.addAll(seismicData);
+        }
+    }
+
+    //clears UI
+    @Override
+    public void onLoaderReset(Loader<List<SeismicData>> loader) {
+        mAdapter.clear();
+    }
+
+
     /**
-     * {@link AsyncTask} to perform the network request on a background thread, and then
-     * update the UI with the first earthquake in the response.
+     * {@link AsyncTaskLoader} to perform the network request on a background thread.
      */
-    private class EarthquakeAsyncTask extends AsyncTask<String, Void, List <SeismicData>> {
+    private static class EarthquakeLoader extends AsyncTaskLoader<List<SeismicData>> {
+        String mUrl;
+
+        public EarthquakeLoader(Context context, String url) {
+            super(context);
+            mUrl = url;
+        }
 
         @Override
-        protected List<SeismicData> doInBackground(String... strings) {
+        protected void onStartLoading() {
+            forceLoad();
+        }
+
+        @Override
+        public List<SeismicData> loadInBackground() {
             // Create URL object
-            URL url = QueryUtils.createUrl(strings[0]);
+            URL url = QueryUtils.createUrl(mUrl);
 
             // Perform HTTP request to the URL and receive a JSON response back
             String jsonResponse = "";
@@ -76,20 +121,14 @@ public class EarthquakeActivity extends AppCompatActivity {
                 Log.e(LOG_TAG, "Problem with making HTTP connection");
 
             }
+            //If HTTP request does'nt return values
+            if (jsonResponse.equals(null) || jsonResponse.equals("")){return new ArrayList<SeismicData>();}
 
             // Extract relevant fields from the JSON response and create an {@link Event} object
-            ArrayList<SeismicData> earthquakes = QueryUtils.extractFromJson(jsonResponse);
+            List<SeismicData> earthquakes = QueryUtils.extractFromJson(jsonResponse);
 
             // Return the {@link Event} object as the result fo the {@link TsunamiAsyncTask}
             return earthquakes;
-        }
-
-        @Override
-        protected void onPostExecute(List<SeismicData> seismicData) {
-            mAdapter.clear();
-
-            mAdapter.addAll(seismicData);
-
         }
     }
 }
