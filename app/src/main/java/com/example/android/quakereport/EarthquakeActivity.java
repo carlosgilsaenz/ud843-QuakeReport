@@ -19,10 +19,14 @@ import android.app.LoaderManager;
 import android.content.AsyncTaskLoader;
 import android.content.Context;
 import android.content.Loader;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.View;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import java.io.IOException;
@@ -59,8 +63,31 @@ public class EarthquakeActivity extends AppCompatActivity implements LoaderManag
         // so the list can be populated in the user interface
         earthquakeListView.setAdapter(mAdapter);
 
-        //initiate background thread
-        getLoaderManager().initLoader(EARTHQUAKE_LOADER_ID, null,this);
+        //verify network state
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+
+        //prompt if no network state
+        if (networkInfo == null || !networkInfo.isConnected() ||
+                (networkInfo.getType() != ConnectivityManager.TYPE_WIFI
+                        && networkInfo.getType() != ConnectivityManager.TYPE_MOBILE)){
+            //all views that require change
+            ListView view = (ListView) findViewById(R.id.list);
+            TextView textView = (TextView) findViewById(R.id.empty_list_item);
+            ProgressBar progressBar = (ProgressBar) findViewById(R.id.loading_spinner);
+
+            //change textView to warn user of no internet connection
+            textView.setText(R.string.noInternet);
+
+            //make list view and progressbar disappear
+            progressBar.setVisibility(View.GONE);
+            view.setEmptyView(textView);
+        }
+        else{
+            //initiate background thread
+            getLoaderManager().initLoader(EARTHQUAKE_LOADER_ID, null,this);
+        }
     }
 
     //imitates Background thread if not started
@@ -74,7 +101,9 @@ public class EarthquakeActivity extends AppCompatActivity implements LoaderManag
     public void onLoadFinished(Loader<List<SeismicData>> loader, List<SeismicData> seismicData) {
         ListView view = (ListView) findViewById(R.id.list);
         TextView textView = (TextView) findViewById(R.id.empty_list_item);
+        ProgressBar progressBar = (ProgressBar) findViewById(R.id.loading_spinner);
 
+        progressBar.setVisibility(View.GONE);
         if(seismicData.isEmpty()){
             view.setEmptyView(textView);
             }
