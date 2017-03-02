@@ -18,12 +18,18 @@ package com.example.android.quakereport;
 import android.app.LoaderManager;
 import android.content.AsyncTaskLoader;
 import android.content.Context;
+import android.content.Intent;
 import android.content.Loader;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -42,7 +48,7 @@ public class EarthquakeActivity extends AppCompatActivity implements LoaderManag
 
     EarthquakeAdapter mAdapter;
 
-    private static final String USGS_REQUEST_URL = "http://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&eventtype=earthquake&orderby=time&minmag=6&limit=10";
+    private static final String USGS_REQUEST_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query";
     /**
      * ATTENTION: This was auto-generated to implement the App Indexing API.
      * See https://g.co/AppIndexing/AndroidStudio for more information.
@@ -90,10 +96,52 @@ public class EarthquakeActivity extends AppCompatActivity implements LoaderManag
         }
     }
 
+    //load menu layout
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
+    }
+
+    //config menu item select
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_settings) {
+            Intent settingsIntent = new Intent(this, SettingsActivity.class);
+            startActivity(settingsIntent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     //imitates Background thread if not started
     @Override
     public Loader<List<SeismicData>> onCreateLoader(int i, Bundle bundle) {
-        return new EarthquakeLoader(this, USGS_REQUEST_URL);
+
+        //grab preferences
+        SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+        //magnitude preference
+        String minMagnitude = sharedPrefs.getString(
+                getString(R.string.settings_min_magnitude_key),
+                getString(R.string.settings_min_magnitude_default));
+        //order preference
+        String orderBy = sharedPrefs.getString(
+                getString(R.string.settings_order_by_key),
+                getString(R.string.settings_order_by_default));
+
+
+        //create URI from URL
+        Uri baseUri = Uri.parse(USGS_REQUEST_URL);
+        Uri.Builder uriBuilder = baseUri.buildUpon();
+        //add to URI URL
+        uriBuilder.appendQueryParameter("format", "geojson");
+        uriBuilder.appendQueryParameter("limit", "10");
+        uriBuilder.appendQueryParameter("minmag", minMagnitude);
+        uriBuilder.appendQueryParameter("orderby", orderBy);
+
+        //starts background process
+        return new EarthquakeLoader(this, uriBuilder.toString());
     }
 
     //updates UI
@@ -151,7 +199,9 @@ public class EarthquakeActivity extends AppCompatActivity implements LoaderManag
 
             }
             //If HTTP request does'nt return values
-            if (jsonResponse.equals(null) || jsonResponse.equals("")){return new ArrayList<SeismicData>();}
+            if (jsonResponse.equals(null) || jsonResponse.equals("")){
+                Log.e(LOG_TAG, "json.Response.equals =  " + jsonResponse);
+                return new ArrayList<SeismicData>();}
 
             // Extract relevant fields from the JSON response and create an {@link Event} object
             List<SeismicData> earthquakes = QueryUtils.extractFromJson(jsonResponse);

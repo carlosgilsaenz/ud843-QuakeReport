@@ -93,7 +93,7 @@ public final class QueryUtils {
      * Returns new URL object from the given string URL.
      */
     public static URL createUrl(String stringUrl) {
-        URL url = null;
+        URL url;
         try {
             url = new URL(stringUrl);
         } catch (MalformedURLException exception) {
@@ -108,16 +108,17 @@ public final class QueryUtils {
      */
     public static String makeHttpRequest(URL url) throws IOException {
 
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            Thread.sleep(2000);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
 
         String jsonResponse = "";
 
         // If the URL is null, then return early.
         if (url == null) {
+            Log.e(LOG_TAG, "Error jsonResponse =  " + jsonResponse);
             return jsonResponse;
         }
 
